@@ -53,19 +53,19 @@ class CVAE_3D(nn.Module):
             nn.BatchNorm3d(num_features=1024),
             nn.ReLU(), # 原始代码这里有 ReLU
 
-            nn.Conv3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0), # Output: (1024, 20, 20, 20)
+            # nn.Conv3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0), # Output: (1024, 20, 20, 20)
+            # nn.BatchNorm3d(num_features=1024),
+            # nn.ReLU(), # 原始代码这里有 ReLU
+
+            # nn.Conv3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0), # Output: (1024, 17, 17, 17)
+            # nn.BatchNorm3d(num_features=1024),
+            # nn.ReLU(), # 原始代码这里有 ReLU
+
+            nn.Conv3d(in_channels=1024, out_channels=1024, kernel_size=6, stride=1, padding=0), # Output: (1024, 14, 14, 14)
             nn.BatchNorm3d(num_features=1024),
             nn.ReLU(), # 原始代码这里有 ReLU
 
-            nn.Conv3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0), # Output: (1024, 17, 17, 17)
-            nn.BatchNorm3d(num_features=1024),
-            nn.ReLU(), # 原始代码这里有 ReLU
-
-            nn.Conv3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0), # Output: (1024, 14, 14, 14)
-            nn.BatchNorm3d(num_features=1024),
-            nn.ReLU(), # 原始代码这里有 ReLU
-
-             nn.Conv3d(in_channels=1024, out_channels=512, kernel_size=4, stride=1, padding=0), # Output: (512, 10, 10, 10)
+             nn.Conv3d(in_channels=1024, out_channels=512, kernel_size=8, stride=1, padding=0), # Output: (512, 10, 10, 10)
             nn.BatchNorm3d(num_features=512),
             nn.ReLU(), # 原始代码这里有 ReLU
 
@@ -92,19 +92,19 @@ class CVAE_3D(nn.Module):
             nn.BatchNorm3d(num_features=512),
             nn.ReLU(),
 
-            nn.ConvTranspose3d(in_channels=512, out_channels=1024, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (1024, 1, 1, 1)
+            nn.ConvTranspose3d(in_channels=512, out_channels=1024, kernel_size=8, stride=1, padding=0, output_padding=0), # Output: (1024, 1, 1, 1)
             nn.BatchNorm3d(num_features=1024),
             nn.ReLU(),
 
-            nn.ConvTranspose3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
-            nn.BatchNorm3d(num_features=1024),
-            nn.ReLU(),
+            # nn.ConvTranspose3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
+            # nn.BatchNorm3d(num_features=1024),
+            # nn.ReLU(),
 
-            nn.ConvTranspose3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
-            nn.BatchNorm3d(num_features=1024),
-            nn.ReLU(),
+            # nn.ConvTranspose3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
+            # nn.BatchNorm3d(num_features=1024),
+            # nn.ReLU(),
 
-            nn.ConvTranspose3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
+            nn.ConvTranspose3d(in_channels=1024, out_channels=1024, kernel_size=6, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
             nn.BatchNorm3d(num_features=1024),
             nn.ReLU(),
 
