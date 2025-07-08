@@ -41,7 +41,8 @@ def test(epoch, model, test_loader, reference_batch, kl_weight, writer, device, 
                 # working only with reference batch for now
                 print("calling plot_reconstruction_grid() to save reconstructions")
                 # plot_reconstruction_grid(data, recon_batch, 3, 21, epoch, save_grid=True)
-                plot_reconstruction_grid(reference_batch, reference_recon_batch, 3, 21, epoch, save_grid=True, reference_batch=True)
+                #就这一行，如果想看绘制到时候再改
+                plot_reconstruction_grid(reference_batch, reference_recon_batch, 1, 32, epoch, save_grid=True, is_reference_batch=True)
 
                 # save_reconstructions(data, recon_batch, epoch, writer, args)
                 # save_representations(latent_batch, epoch, writer, args)

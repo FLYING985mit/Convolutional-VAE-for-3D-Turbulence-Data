@@ -17,7 +17,7 @@ from models import CVAE_3D, CVAE_3D_II
 from train import train
 from test import test
 from checkpoint import save_checkpoint
-from datasets import CFD3DDataset
+from datasets import CFD3DDataset,config as My_config
 from utils import init_weights, plot_generation_grid
 from loss import schedule_KL_annealing
 
@@ -49,10 +49,10 @@ def main():
     parser.add_argument('--test_every_epochs', type=int, default=10, metavar='N', help='test reconstruction, generation every i-th epoch')
 
     # set model hyperparams and architecture dimensions
-    parser.add_argument('--batch_size', type=int, default=64, metavar='N', help='input batch size for training (default: 128)')
-    parser.add_argument('--epochs', type=int, default=10, metavar='N', help='number of epochs to train (default: 10)')
+    parser.add_argument('--batch_size', type=int, default=2, metavar='N', help='input batch size for training (default: 128)')
+    parser.add_argument('--epochs', type=int, default=100, metavar='N', help='number of epochs to train (default: 10)')
     parser.add_argument('--h_dim', type=int, default=128, metavar='N', help='fully connected hidden units') # DEPRECATED
-    parser.add_argument('--z_dim', type=int, default=64, metavar='N', help='latent vector size of encoder')
+    parser.add_argument('--z_dim', type=int, default=512, metavar='N', help='latent vector size of encoder')
 
     args = parser.parse_args()
     # torch.manual_seed(args.seed)
@@ -76,20 +76,34 @@ def main():
     # simulation parameters
     no_simulations = 96 # individual npy files
     simulation_timesteps = 100 # time steps per simulation
-    IMG_DIM = 21 # cube dimensions
-    cube_channels = 3 # 3 velocity components (analogue to RGB)
+    # IMG_DIM = 21 # cube dimensions
+    # cube_channels = 3 # 3 velocity components (analogue to RGB)
+
+    IMG_DIM = My_config.image_size # <-- 核心修改：你的立方体维度是 32x32x32
+    cube_channels = 1 # <-- 核心修改：你的信道增益是单通道 (C=1)
+
+    # define transforms like cropping, augmentation
 
     # define transforms like cropping, augmentation
     # transformations = transforms.Compose([transforms.CenterCrop(28), transforms.ToTensor()])
-    transformations = transforms.Compose([transforms.ToTensor()]) # this is obsolete (not taken into account in datasets.py)
-
+    # transformations = transforms.Compose([transforms.ToTensor()]) # this is obsolete (not taken into account in datasets.py)
+    transformations=None
     # define custom 3D dataset
-    CFD_3D_dataset = CFD3DDataset(data_dir, no_simulations, simulation_timesteps, transformations)
+    #def __init__(self, img_dir, list_num=None, list_Folder=None, global_min_val=None, global_max_val=None):
 
+    # CFD_3D_dataset = CFD3DDataset(My_config.dir,My_config.list_num,My_config.list_Folder,global_min_val=-250,global_max_val=-78.4475)
+    CFD_3D_dataset = CFD3DDataset(
+    img_dir=My_config.dir,
+    list_num=My_config.list_num,
+    list_Folder=My_config.list_Folder,
+    list_time_steps=My_config.list_time_steps, # 新增参数
+    global_max_val=-78.4475,
+    global_min_val=-250
+)
     # split train, validation sets
     train_set, val_set = torch.utils.data.random_split(CFD_3D_dataset,
-                                                       [int(len(CFD_3D_dataset)*0.7),
-                                                        int(len(CFD_3D_dataset)*0.3)])
+                                                       [int(len(CFD_3D_dataset)*0.8),
+                                                        int(len(CFD_3D_dataset)*0.2)])
 
     # create data loaders
     train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True)
@@ -105,10 +119,16 @@ def main():
     # print(reference_batch_3D_CFD[0][2]) # prints 1 cube, 1 channel
 
     # instantiate model and initialize network weights
-    model = CVAE_3D_II(image_channels=cube_channels, h_dim=args.h_dim, z_dim=args.z_dim).to(device=device, dtype=torch.float)
+    # model = CVAE_3D_II(image_channels=cube_channels, h_dim=args.h_dim, z_dim=args.z_dim).to(device=device, dtype=torch.float)
+    model = CVAE_3D(image_channels=cube_channels, z_dim=args.z_dim).to(device=device, dtype=torch.float)
     model.apply(init_weights) # xavier initialization
     optimizer = optim.Adam(model.parameters(), lr=1e-3) # 1e-4 0 KLD, 1e-3 works, 1e-1 & 1e-2 gives NaN
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader))
+    #print information
+    print()
+    print("[INFO] started epoch training")
+    start_epoch = 0
+    best_test_loss = np.finfo('f').max
 
     print()
     print("[INFO] started epoch training")
@@ -131,8 +151,9 @@ def main():
     writer = SummaryWriter()
 
     # schedule KL annealing
-    kl_weights = schedule_KL_annealing(0.0, 1.0, args.epochs, 4) # cyclical annealing
-    kl_weight = 0
+    kl_weights = schedule_KL_annealing(0.0, 1.0, args.epochs, 1,ratio=0.8) # cyclical annealing
+    # kl_weight=1
+    # kl_weight = 0
 
     # epoch training
     for epoch in range(start_epoch, args.epochs):
@@ -148,7 +169,7 @@ def main():
         writer.add_scalar("train/train_loss", train_total_loss, epoch) # save loss values with writer (dumped into runs/ dir)
         writer.add_scalar("train/BCE_loss", train_BCE_loss, epoch)
         writer.add_scalar("train/KLD_loss", train_KLD_loss, epoch)
-        print("Epoch [%d/%d] train_total_loss: %.3f, train_REC_loss: %.3f, train_KLD_loss: %.3f" % (epoch, args.epochs, train_total_loss, train_BCE_loss, train_KLD_loss))
+        print("Epoch [%d/%d] train_total_loss: %.3f, train_REC_loss: %.3f, train_KLD_loss: %.3f" % (epoch+1, args.epochs, train_total_loss, train_BCE_loss, train_KLD_loss))
 
         # test losses
         if epoch % args.test_every_epochs == 0:
