@@ -44,8 +44,8 @@ def loss_function(recon_x, x, mu, logvar, kl_weight):
     # BCEL = torch.nn.BCEWithLogitsLoss(reduction="mean")(recon_x, x)
 
     # KL divergence loss (with annealing)
-    # KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp()) # sum or mean
-    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp()) # sum or mean
+    # KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     # print("KLD:", KLD)
     KLD = KLD * kl_weight
 
