@@ -40,6 +40,7 @@ def loss_function(recon_x, x, mu, logvar, kl_weight):
     MSE = 0.1 * torch.nn.MSELoss(reduction='sum')(recon_x, x)
     # MSE =  torch.nn.MSELoss(reduction='sum')(recon_x, x)
 
+
     # BCE = F.binary_cross_entropy(recon_x, x, reduction="mean") # only takes data in range [0, 1]
     # BCEL = torch.nn.BCEWithLogitsLoss(reduction="mean")(recon_x, x)
 
