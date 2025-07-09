@@ -48,9 +48,8 @@ class CVAE_3D(nn.Module):
             nn.Conv3d(in_channels=256, out_channels=512, kernel_size=4, stride=1, padding=0), # Output: (512, 26, 26, 26)
             nn.BatchNorm3d(num_features=512),
             nn.ReLU(),
-            
-            nn.Conv3d(in_channels=512, out_channels=1024, kernel_size=4, stride=1, padding=0), # Output: (1024, 23, 23, 23)
-            nn.BatchNorm3d(num_features=1024),
+            nn.Conv3d(in_channels=512, out_channels=512, kernel_size=4, stride=1, padding=0), # Output: (512, 23, 23, 23)
+            nn.BatchNorm3d(num_features=512),
             nn.ReLU(), # 原始代码这里有 ReLU
 
             # nn.Conv3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0), # Output: (1024, 20, 20, 20)
@@ -61,16 +60,16 @@ class CVAE_3D(nn.Module):
             # nn.BatchNorm3d(num_features=1024),
             # nn.ReLU(), # 原始代码这里有 ReLU
 
-            nn.Conv3d(in_channels=1024, out_channels=1024, kernel_size=6, stride=1, padding=0), # Output: (1024, 14, 14, 14)
-            nn.BatchNorm3d(num_features=1024),
-            nn.ReLU(), # 原始代码这里有 ReLU
-
-             nn.Conv3d(in_channels=1024, out_channels=512, kernel_size=8, stride=1, padding=0), # Output: (512, 10, 10, 10)
+            nn.Conv3d(in_channels=512, out_channels=512, kernel_size=6, stride=1, padding=0), # Output: (512, 14, 14, 14)
             nn.BatchNorm3d(num_features=512),
             nn.ReLU(), # 原始代码这里有 ReLU
 
-             nn.Conv3d(in_channels=512, out_channels=1024, kernel_size=4, stride=1, padding=0), # Output: (1024, 7, 7, 7)
-            nn.BatchNorm3d(num_features=1024),
+             nn.Conv3d(in_channels=512, out_channels=512, kernel_size=8, stride=1, padding=0), # Output: (512, 10, 10, 10)
+            nn.BatchNorm3d(num_features=512),
+            nn.ReLU(), # 原始代码这里有 ReLU
+
+             nn.Conv3d(in_channels=512, out_channels=512, kernel_size=4, stride=1, padding=0), # Output: (1024, 7, 7, 7)
+            nn.BatchNorm3d(num_features=512),
             nn.ReLU(), # 原始代码这里有 ReLU
             
             Flatten() # reshape layer (output will be 1024)
@@ -85,15 +84,15 @@ class CVAE_3D(nn.Module):
 
         # Decoder (调整 stride 和 padding, 确保 output_padding 使得尺寸正确翻倍)
         self.decoder = nn.Sequential(
-            UnFlatten(target_shape=(1024, 2, 2, 2)), # 对应编码器 Flatten 前的维度
-            nn.BatchNorm3d(num_features=1024),
+            UnFlatten(target_shape=(512, 2, 2, 2)), # 对应编码器 Flatten 前的维度
+            nn.BatchNorm3d(num_features=512),
             nn.ReLU(),
-            nn.ConvTranspose3d(in_channels=1024, out_channels=512, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (1024, 1, 1, 1)
+            nn.ConvTranspose3d(in_channels=512, out_channels=512, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (1024, 1, 1, 1)
             nn.BatchNorm3d(num_features=512),
             nn.ReLU(),
 
-            nn.ConvTranspose3d(in_channels=512, out_channels=1024, kernel_size=8, stride=1, padding=0, output_padding=0), # Output: (1024, 1, 1, 1)
-            nn.BatchNorm3d(num_features=1024),
+            nn.ConvTranspose3d(in_channels=512, out_channels=512, kernel_size=8, stride=1, padding=0, output_padding=0), # Output: (1024, 1, 1, 1)
+            nn.BatchNorm3d(num_features=512),
             nn.ReLU(),
 
             # nn.ConvTranspose3d(in_channels=1024, out_channels=1024, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
@@ -104,11 +103,11 @@ class CVAE_3D(nn.Module):
             # nn.BatchNorm3d(num_features=1024),
             # nn.ReLU(),
 
-            nn.ConvTranspose3d(in_channels=1024, out_channels=1024, kernel_size=6, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
-            nn.BatchNorm3d(num_features=1024),
+            nn.ConvTranspose3d(in_channels=512, out_channels=512, kernel_size=6, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
+            nn.BatchNorm3d(num_features=512),
             nn.ReLU(),
 
-            nn.ConvTranspose3d(in_channels=1024, out_channels=512, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
+            nn.ConvTranspose3d(in_channels=512, out_channels=512, kernel_size=4, stride=1, padding=0, output_padding=0), # Output: (512, 2, 2, 2)
             nn.BatchNorm3d(num_features=512),
             nn.ReLU(),
             
