@@ -76,7 +76,7 @@ class CVAE_3D(nn.Module):
         )
 
         # fully connected layers to compute mu and sigma
-        self.encoder_final_flat_dim = 8192 # Flatten 后的维度现在是 1024
+        self.encoder_final_flat_dim = 4096 # Flatten 后的维度现在是 1024
         self.fc1 = nn.Linear(self.encoder_final_flat_dim, z_dim)
         self.fc2 = nn.Linear(self.encoder_final_flat_dim, z_dim)
 
