@@ -52,7 +52,7 @@ def main():
     parser.add_argument('--batch_size', type=int, default=4, metavar='N', help='input batch size for training (default: 128)')
     parser.add_argument('--epochs', type=int, default=100, metavar='N', help='number of epochs to train (default: 10)')
     parser.add_argument('--h_dim', type=int, default=128, metavar='N', help='fully connected hidden units') # DEPRECATED
-    parser.add_argument('--z_dim', type=int, default=2048, metavar='N', help='latent vector size of encoder')
+    parser.add_argument('--z_dim', type=int, default=10192, metavar='N', help='latent vector size of encoder')
 
     args = parser.parse_args()
     # torch.manual_seed(args.seed)
