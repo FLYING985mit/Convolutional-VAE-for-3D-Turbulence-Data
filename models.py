@@ -10,19 +10,20 @@ class Flatten(nn.Module):
         return input.view(input.size(0), -1)
 
 class UnFlatten(nn.Module):
-    def __init__(self, target_shape):
+    def __init__(self, target_shape): # target_shape is a tuple like (channels, D, H, W)
         super(UnFlatten, self).__init__()
         self.target_shape = target_shape
     def forward(self, input):
         return input.view(input.size(0), *self.target_shape)
 
-class CVAE_3D(nn.Module): # 保持类名不变，但功能已变为 AE
-    def __init__(self, image_channels=1, z_dim=1024): # z_dim 现在是潜在向量的直接维度
+class CVAE_3D(nn.Module): # 类名保持 CVAE_3D，但实际功能是带跳跃连接的 AE
+    def __init__(self, image_channels=1, z_dim=1024):
         super(CVAE_3D, self).__init__()
         print()
-        print("[INFO] instantiating pytorch model: 3D Autoencoder (with Skip Connections)") # 更改打印信息
+        print("[INFO] instantiating pytorch model: 3D Autoencoder (with Skip Connections)")
 
-        # Encoder (5 layers, stride=2, padding=1)
+        # Encoder (5 layers, stride=2, padding=1) - Each outputs a feature map for skip connection
+        # Input: (C, 32, 32, 32)
         self.conv1_e = nn.Sequential( # Output: (64, 16, 16, 16)
             nn.Conv3d(in_channels=image_channels, out_channels=64, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm3d(num_features=64),
@@ -51,60 +52,61 @@ class CVAE_3D(nn.Module): # 保持类名不变，但功能已变为 AE
         )
 
         self.encoder_final_flat_dim = 1024 * 1 * 1 * 1 # Flatten 后的维度是 1024
-        # self.fc1 = nn.Linear(self.encoder_final_flat_dim, z_dim) # 原始 CVAE 的 mu 层
-        # self.fc2 = nn.Linear(self.encoder_final_flat_dim, z_dim) # 原始 CVAE 的 logvar 层
         self.fc_encode = nn.Linear(self.encoder_final_flat_dim, z_dim) # AE 直接输出 z
-
-        self.fc3 = nn.Linear(z_dim, self.encoder_final_flat_dim) # 从 z_dim 映射回 Flatten 后的维度
+        self.fc_decode = nn.Linear(z_dim, self.encoder_final_flat_dim) # 从 z_dim 映射回 Flatten 后的维度
 
         # Decoder (5 layers ConvTranspose3d, stride=2, padding=1)
+        # Initial layer after FC_decode + UnFlatten
         self.initial_d = nn.Sequential(
-            UnFlatten(target_shape=(1024, 1, 1, 1)), # 从潜在空间恢复到空间维度 (1024, 1, 1, 1)
+            UnFlatten(target_shape=(1024, 1, 1, 1)), # 从 fc_decode 恢复到空间维度 (1024, 1, 1, 1)
             nn.BatchNorm3d(num_features=1024),
             nn.ReLU()
         )
         
+        # Layer 1: Takes (decoder_input + skip_from_conv5_e)
+        # Output: (512, 2, 2, 2)
         self.conv1_d = nn.Sequential( 
             nn.ConvTranspose3d(in_channels=1024 + 1024, out_channels=512, kernel_size=4, stride=2, padding=1, output_padding=0),
             nn.BatchNorm3d(num_features=512),
             nn.ReLU()
         )
+        # Layer 2: Takes (decoder_input + skip_from_conv4_e)
+        # Output: (256, 4, 4, 4)
         self.conv2_d = nn.Sequential( 
             nn.ConvTranspose3d(in_channels=512 + 512, out_channels=256, kernel_size=4, stride=2, padding=1, output_padding=0),
             nn.BatchNorm3d(num_features=256),
             nn.ReLU()
         )
+        # Layer 3: Takes (decoder_input + skip_from_conv3_e)
+        # Output: (128, 8, 8, 8)
         self.conv3_d = nn.Sequential( 
             nn.ConvTranspose3d(in_channels=256 + 256, out_channels=128, kernel_size=4, stride=2, padding=1, output_padding=0),
             nn.BatchNorm3d(num_features=128),
             nn.ReLU()
         )
+        # Layer 4: Takes (decoder_input + skip_from_conv2_e)
+        # Output: (64, 16, 16, 16)
         self.conv4_d = nn.Sequential( 
             nn.ConvTranspose3d(in_channels=128 + 128, out_channels=64, kernel_size=4, stride=2, padding=1, output_padding=0),
             nn.BatchNorm3d(num_features=64),
             nn.ReLU()
         )
+        # Final Output Layer: Takes (decoder_input + skip_from_conv1_e)
+        # Output: (image_channels, 32, 32, 32)
         self.final_d = nn.Sequential( 
             nn.ConvTranspose3d(in_channels=64 + 64, out_channels=image_channels, kernel_size=4, stride=2, padding=1, output_padding=0),
-            nn.Tanh() # 数据归一化到 [-1, 1]，所以使用 Tanh
+            nn.Tanh() # Data normalized to [-1, 1], so use Tanh
         )
+
+    # AE 没有 reparameterize
+    # def reparameterize(self, mu, logvar): ...
+
+    # AE 的 bottleneck 直接输出潜在向量 z
+    def bottleneck(self, h_flat):
+        z = self.fc_encode(h_flat) # 直接从展平后的特征得到潜在向量
+        return z
     
-    # === 移除 reparameterize 函数，因为它不再需要 ===
-    # def reparameterize(self, mu, logvar):
-    #     logvar = torch.clamp(logvar, min=-5.0, max=5.0)
-    #     std = torch.exp(0.5 * logvar)
-    #     eps = torch.rand_like(std)
-    #     z = eps.mul(std).add_(mu)
-    #     return z
-
-    # === 修改 bottleneck 函数，直接输出 z ===
-    def bottleneck(self, h):
-        # mu, logvar = self.fc1(h), self.fc2(h) # 原始 CVAE
-        # z = self.reparameterize(mu, logvar) # 原始 CVAE
-        z = self.fc_encode(h) # AE 直接输出潜在向量 z
-        return z # AE 只返回 z
-
-    # === 修改 encode 函数，返回 z 和 skip connections ===
+    # 编码器前向传播并返回最终的展平特征和所有中间特征图以用于跳跃连接
     def encode(self, x):
         e1 = self.conv1_e(x) # (64, 16, 16, 16)
         e2 = self.conv2_e(e1) # (128, 8, 8, 8)
@@ -114,40 +116,51 @@ class CVAE_3D(nn.Module): # 保持类名不变，但功能已变为 AE
 
         h_flat = e5.view(e5.size(0), -1) # Flatten final encoder output (1024)
         z = self.bottleneck(h_flat) # 获取潜在向量 z
-        return z, e1, e2, e3, e4, e5 # 返回 z 和所有用于跳跃连接的中间特征图
+        # 返回潜在向量 z 和所有用于跳跃连接的中间特征图
+        return z, e1, e2, e3, e4, e5 
 
-    # decode 函数保持不变，因为它是从 z_reconstructed 和 skips 进行解码
-    def decode(self, z_reconstructed, e_skips):
+    # 解码器前向传播，接收潜在向量和编码器中间特征图
+    def decode(self, z_decoded_flat, e_skips):
+        # e_skips 包含了 (e1, e2, e3, e4, e5)
         e1, e2, e3, e4, e5 = e_skips
 
-        d0 = self.initial_d(z_reconstructed) 
-        d1 = self.conv1_d(torch.cat([d0, e5], dim=1)) 
-        d2 = self.conv2_d(torch.cat([d1, e4], dim=1)) 
-        d3 = self.conv3_d(torch.cat([d2, e3], dim=1)) 
-        d4 = self.conv4_d(torch.cat([d3, e2], dim=1)) 
+        # 解码器从潜在空间映射后的特征开始
+        d0 = self.initial_d(z_decoded_flat) # From fc_decode to (1024, 1, 1, 1)
+
+        # 逐层上采样并拼接跳跃连接 (从编码器深层到浅层)
+        # d0 是 (1024, 1, 1, 1), e5 是 (1024, 1, 1, 1)。拼接后 (2048, 1, 1, 1)
+        d1 = self.conv1_d(torch.cat([d0, e5], dim=1)) # ConvTranspose output: (512, 2, 2, 2)
+        
+        # d1 是 (512, 2, 2, 2), e4 是 (512, 2, 2, 2)。拼接后 (1024, 2, 2, 2)
+        d2 = self.conv2_d(torch.cat([d1, e4], dim=1)) # ConvTranspose output: (256, 4, 4, 4)
+        
+        # d2 是 (256, 4, 4, 4), e3 是 (256, 4, 4, 4)。拼接后 (512, 4, 4, 4)
+        d3 = self.conv3_d(torch.cat([d2, e3], dim=1)) # ConvTranspose output: (128, 8, 8, 8)
+        
+        # d3 是 (128, 8, 8, 8), e2 是 (128, 8, 8, 8)。拼接后 (256, 8, 8, 8)
+        d4 = self.conv4_d(torch.cat([d3, e2], dim=1)) # ConvTranspose output: (64, 16, 16, 16)
+        
+        # 最后一层：d4 是 (64, 16, 16, 16), e1 是 (64, 16, 16, 16)。拼接后 (128, 16, 16, 16)
         decoded_x = self.final_d(torch.cat([d4, e1], dim=1)) 
 
         return decoded_x
 
-    # representation 函数可以保留，因为它只用于提取潜在表示，但不再是 mu
-    def representation(self, x):
-        z, _, _, _, _, _ = self.encode(x) # 仅获取 z
-        return z
-
-    # === 修改 forward 函数的返回值 ===
+    # forward 方法
     def forward(self, x):
-        z, e1, e2, e3, e4, e5 = self.encode(x) # encode 现在直接返回 z
+        # 编码器前向传播，获取潜在向量 z 和所有中间特征图
+        z, e1, e2, e3, e4, e5 = self.encode(x) 
         
-        # z_representation 是 z 本身
+        # z_representation 是潜在向量 z 本身
         z_representation = z 
 
-        # z 经过 fc3 变换后，形状与 encoder_final_flat_dim 相同，才能送入 UnFlatten
-        z_reconstructed_from_latent_space = self.fc3(z) 
+        # 将潜在向量 z 映射回 Flatten 前的维度，送入解码器
+        z_decoded_flat = self.fc_decode(z) 
 
-        decoded_x = self.decode(z_reconstructed_from_latent_space, (e1, e2, e3, e4, e5)) 
+        # 调用解码器，传递映射后的潜在向量和编码器中间特征图
+        decoded_x = self.decode(z_decoded_flat, (e1, e2, e3, e4, e5)) 
         
-        # 对于 AE，不再返回 mu 和 logvar，而是返回重建结果，z，以及 z 作为表示
-        return decoded_x, z_representation, torch.tensor(0.0), torch.tensor(0.0) # mu 和 logvar 设为 0.0
+        # 返回重建结果，潜在向量，以及两个占位符 (为了兼容 train.py/test.py 的 VAE 损失函数签名)
+        return decoded_x, z_representation, torch.tensor(0.0), torch.tensor(0.0) 
 
 
 # class Flatten(nn.Module):
