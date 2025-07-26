@@ -107,12 +107,13 @@ class CFD3DDataset(Dataset):
 # ===============================================================
 #  3D 卷积自编码器模型 (与之前相同)
 # ===============================================================
-class Autoencoder3D(nn.Module):
-    # ... 此处代码与之前相同，无需改动 ...
-    def __init__(self):
-        super(Autoencoder3D, self).__init__()
+class Autoencoder_LatentVector(nn.Module):
+    def __init__(self, latent_dim=256):
+        super(Autoencoder_LatentVector, self).__init__()
         
-        self.encoder = nn.Sequential(
+        # ----------- 编码器 -----------
+        # 卷积部分保持不变，用于提取空间特征
+        self.conv_encoder = nn.Sequential(
             nn.Conv3d(in_channels=1, out_channels=16, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
             nn.Conv3d(in_channels=16, out_channels=32, kernel_size=3, stride=2, padding=1),
@@ -121,19 +122,47 @@ class Autoencoder3D(nn.Module):
             nn.ReLU()
         )
         
-        self.decoder = nn.Sequential(
+        # 全连接部分：将卷积后的三维特征图展平并压缩成一维向量
+        # 卷积输出为 (N, 64, 4, 4, 4)，展平后大小为 64 * 4 * 4 * 4 = 4096
+        self.fc_encoder = nn.Linear(64 * 4 * 4, latent_dim)
+
+        # ----------- 解码器 -----------
+        # 全连接部分：将一维的潜在向量扩展回准备用于卷积的维度
+        self.fc_decoder = nn.Linear(latent_dim, 64 * 4 * 4 * 4)
+
+        # 反卷积部分保持不变，用于从特征图重建三维数据
+        self.conv_decoder = nn.Sequential(
             nn.ConvTranspose3d(in_channels=64, out_channels=32, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
             nn.ConvTranspose3d(in_channels=32, out_channels=16, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
             nn.ConvTranspose3d(in_channels=16, out_channels=1, kernel_size=3, stride=2, padding=1, output_padding=1),
-            nn.Tanh()
+            nn.Tanh() # Tanh 激活函数将输出值缩放到 [-1, 1] 范围，与归一化后的输入匹配
         )
 
-    def forward(self, x):
-        latent_features = self.encoder(x)
-        reconstructed_x = self.decoder(latent_features)
+    def encode(self, x):
+        # 1. 通过卷积层提取特征
+        x = self.conv_encoder(x)
+        # 2. 展平三维特征图，-1 表示自动计算 batch_size
+        x = x.view(x.size(0), -1) 
+        # 3. 通过全连接层得到一维潜在向量
+        latent_vector = self.fc_encoder(x)
+        return latent_vector
+
+    def decode(self, latent_vector):
+        # 1. 通过全连接层将一维向量放大
+        x = self.fc_decoder(latent_vector)
+        # 2. 将一维向量重塑为三维特征图 (N, 64, 4, 4, 4)
+        x = x.view(x.size(0), 64, 4, 4, 4)
+        # 3. 通过反卷积层重建原始数据
+        reconstructed_x = self.conv_decoder(x)
         return reconstructed_x
+
+    def forward(self, x):
+        latent_vector = self.encode(x)
+        reconstructed_x = self.decode(latent_vector)
+        return reconstructed_x
+
 
 # ===============================================================
 #  训练函数 (稍作修改，返回训练好的模型和数据集)
@@ -146,7 +175,7 @@ def train_ae():
     train_loader = DataLoader(dataset=full_dataset, batch_size=config.batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
     # 2. 初始化模型、损失函数和优化器
-    model = Autoencoder3D().to(config.device)
+    model = Autoencoder_LatentVector().to(config.device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
 
@@ -244,7 +273,7 @@ def visualize_reconstruction(model, dataset, device, num_images=4):
     
     plt.tight_layout(rect=[0, 0, 1, 0.96]) # 调整布局以适应主标题
     # 保存图像文件
-    plt.savefig("./png/reconstruction_comparison.png")
+    plt.savefig("reconstruction_comparison.png")
     print("Visualization saved as 'reconstruction_comparison.png'")
     plt.show()
 
@@ -259,6 +288,8 @@ if __name__ == '__main__':
     else:
         # 1. 训练模型
         trained_model, full_dataset = train_ae()
+        torch.save(trained_model.state_dict(),"vae.pth")
+        
         
         # 2. 在训练结束后进行可视化
         visualize_reconstruction(trained_model, full_dataset, config.device, num_images=4)
