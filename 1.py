@@ -35,7 +35,7 @@ class config:
 
 class CFD3DDataset(Dataset):
     # ... 此处代码与您之前提供的一致，无需改动 ...
-    def __init__(self, img_dir, list_num=None, list_Folder=None, list_time_steps=None, global_min_val=None, global_max_val=None):
+    def __init__(self, img_dir, list_num=None, list_Folder=None, list_time_steps=None, global_min_val=-250, global_max_val=-75.6286):
         self.dir = img_dir
         self.folder_ids = list_Folder if list_Folder is not None else config.list_Folder
         self.num_ids = list_num if list_num is not None else config.list_num
@@ -124,7 +124,7 @@ class Autoencoder_LatentVector(nn.Module):
         
         # 全连接部分：将卷积后的三维特征图展平并压缩成一维向量
         # 卷积输出为 (N, 64, 4, 4, 4)，展平后大小为 64 * 4 * 4 * 4 = 4096
-        self.fc_encoder = nn.Linear(64 * 4 * 4, latent_dim)
+        self.fc_encoder = nn.Linear(64 * 4 * 4*4, latent_dim)
 
         # ----------- 解码器 -----------
         # 全连接部分：将一维的潜在向量扩展回准备用于卷积的维度
